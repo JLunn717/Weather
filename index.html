@@ -5,18 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Weather App</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/skycons/1396634940/skycons.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>Weather App</h1>
-    <input id="location" type="text" placeholder="Enter location">
-    <button id="search-btn">Search</button>
-
-    <div id="weather-data"></div>
-    <div id="forecast-data"></div>
-    <div id="error-log"></div>
+    <div class="sidebar">
+      <input type="text" id="search" placeholder="Search city...">
+      <button id="use-location">Use My Location</button>
+      <button id="save-location">Save Location</button>
+      <h3>Saved Locations</h3>
+      <ul id="saved-locations"></ul>
+    </div>
+    <div class="main">
+      <div id="current-weather" class="card"></div>
+      <div id="hourly-forecast" class="card"></div>
+      <div id="daily-forecast" class="card"></div>
+      <div id="radar" class="card">
+        <iframe id="radar-frame" width="100%" height="400" frameborder="0"></iframe>
+      </div>
+    </div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
