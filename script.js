@@ -15,7 +15,7 @@ const radarFrame = document.getElementById("radar-frame");
 // ---------- Load Saved Locations ----------
 function renderSavedLocations() {
   savedList.innerHTML = "";
-  savedLocations.forEach((loc, i) => {
+  savedLocations.forEach((loc) => {
     const li = document.createElement("li");
     li.textContent = loc.name;
     li.onclick = () => fetchWeatherByCoords(loc.lat, loc.lon, loc.name);
@@ -27,23 +27,35 @@ renderSavedLocations();
 // ---------- Get GPS Location ----------
 function getGPSLocation() {
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      const { latitude, longitude } = pos.coords;
-      fetchWeatherByCoords(latitude, longitude, "My Location");
-    });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        fetchWeatherByCoords(latitude, longitude, "My Location");
+      },
+      (err) => {
+        alert("Unable to get your location. Please allow GPS or search a city.");
+      }
+    );
+  } else {
+    alert("Geolocation is not supported by your browser.");
   }
 }
 
 // ---------- Fetch Weather ----------
-async function fetchWeatherByCoords(lat, lon, name="") {
+async function fetchWeatherByCoords(lat, lon, name = "") {
   currentLocation = { lat, lon, name };
-  const url = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&units=imperial&appid=${apiKey}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  renderCurrentWeather(data.current, name);
-  renderHourlyForecast(data.hourly);
-  renderDailyForecast(data.daily);
-  renderRadar(lat, lon);
+  try {
+    const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&units=imperial&appid=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("API request failed. Check your API key.");
+    const data = await res.json();
+    renderCurrentWeather(data.current, name);
+    renderHourlyForecast(data.hourly);
+    renderDailyForecast(data.daily);
+    renderRadar(lat, lon);
+  } catch (err) {
+    alert("Error fetching weather: " + err.message);
+  }
 }
 
 // ---------- Render Functions ----------
@@ -56,7 +68,7 @@ function renderCurrentWeather(curr, name) {
     <p>Wind: ${curr.wind_speed} mph</p>
     <p>Precip: ${curr.rain ? (curr.rain["1h"] || 0) + " in" : "0 in"}</p>
   `;
-  const skycons = new Skycons({"color": "white"});
+  const skycons = new Skycons({ color: "white" });
   skycons.set("current-icon", mapIcon(curr.weather[0].id));
   skycons.play();
 }
@@ -66,17 +78,17 @@ function renderHourlyForecast(hourly) {
   const container = hourlyDiv.querySelector(".hourly-grid");
   container.style.display = "flex";
   container.style.overflowX = "auto";
-  hourly.slice(0,12).forEach(hr => {
+  hourly.slice(0, 12).forEach((hr) => {
     const div = document.createElement("div");
     div.style.minWidth = "80px";
     div.style.textAlign = "center";
     div.innerHTML = `
       <canvas id="icon-${hr.dt}" width="32" height="32"></canvas>
-      <p>${new Date(hr.dt*1000).getHours()}:00</p>
+      <p>${new Date(hr.dt * 1000).getHours()}:00</p>
       <p>${hr.temp.toFixed(0)}°F</p>
     `;
     container.appendChild(div);
-    const skycons = new Skycons({"color":"white"});
+    const skycons = new Skycons({ color: "white" });
     skycons.set(`icon-${hr.dt}`, mapIcon(hr.weather[0].id));
     skycons.play();
   });
@@ -87,18 +99,18 @@ function renderDailyForecast(daily) {
   const container = dailyDiv.querySelector(".daily-grid");
   container.style.display = "flex";
   container.style.overflowX = "auto";
-  daily.slice(0,7).forEach(day => {
+  daily.slice(0, 7).forEach((day) => {
     const div = document.createElement("div");
     div.style.minWidth = "100px";
     div.style.textAlign = "center";
     div.innerHTML = `
       <canvas id="daily-${day.dt}" width="48" height="48"></canvas>
-      <p>${new Date(day.dt*1000).toLocaleDateString(undefined, { weekday: 'short' })}</p>
+      <p>${new Date(day.dt * 1000).toLocaleDateString(undefined, { weekday: 'short' })}</p>
       <p>${day.temp.max.toFixed(0)}° / ${day.temp.min.toFixed(0)}°</p>
       <p>💧${day.rain ? day.rain + " in" : "0 in"}</p>
     `;
     container.appendChild(div);
-    const skycons = new Skycons({"color":"white"});
+    const skycons = new Skycons({ color: "white" });
     skycons.set(`daily-${day.dt}`, mapIcon(day.weather[0].id));
     skycons.play();
   });
@@ -119,15 +131,19 @@ function mapIcon(id) {
 }
 
 // ---------- Event Listeners ----------
-searchInput.addEventListener("keypress", e => {
-  if (e.key === "Enter") {
-    fetchCity(searchInput.value);
-  }
+searchInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") fetchCity(searchInput.value);
 });
 
 useLocationBtn.addEventListener("click", getGPSLocation);
+
 saveLocationBtn.addEventListener("click", () => {
-  if (currentLocation && !savedLocations.find(l => l.lat === currentLocation.lat && l.lon === currentLocation.lon)) {
+  if (
+    currentLocation &&
+    !savedLocations.find(
+      (l) => l.lat === currentLocation.lat && l.lon === currentLocation.lon
+    )
+  ) {
     savedLocations.push(currentLocation);
     localStorage.setItem("savedLocations", JSON.stringify(savedLocations));
     renderSavedLocations();
@@ -136,13 +152,18 @@ saveLocationBtn.addEventListener("click", () => {
 
 // ---------- Fetch by City Name ----------
 async function fetchCity(name) {
-  const geo = `https://api.openweathermap.org/geo/1.0/direct?q=${name}&limit=1&appid=${apiKey}`;
-  const res = await fetch(geo);
-  const data = await res.json();
-  if (data.length) {
-    fetchWeatherByCoords(data[0].lat, data[0].lon, data[0].name);
-  } else {
-    alert("City not found");
+  try {
+    const geo = `https://api.openweathermap.org/geo/1.0/direct?q=${name}&limit=1&appid=${apiKey}`;
+    const res = await fetch(geo);
+    if (!res.ok) throw new Error("City lookup failed");
+    const data = await res.json();
+    if (data.length) {
+      fetchWeatherByCoords(data[0].lat, data[0].lon, data[0].name);
+    } else {
+      alert("City not found");
+    }
+  } catch (err) {
+    alert("Error fetching city: " + err.message);
   }
 }
 
