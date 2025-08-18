@@ -1,93 +1,150 @@
-const apiEndpoint = 'https://api.weatherapi.com/v1/';
-const apiKey = '7f73379c835f4f34a31212956251708';
+const apiKey = "156ae177cef40f92941f517eff216625";
+let currentLocation = null;
+let savedLocations = JSON.parse(localStorage.getItem("savedLocations")) || [];
 
-const locationInput = document.getElementById('location');
-const searchBtn = document.getElementById('search-btn');
-const weatherDataDiv = document.getElementById('weather-data');
-const forecastDataDiv = document.getElementById('forecast-data');
-const errorLog = document.getElementById('error-log');
+const searchInput = document.getElementById("search");
+const useLocationBtn = document.getElementById("use-location");
+const saveLocationBtn = document.getElementById("save-location");
+const savedList = document.getElementById("saved-locations");
 
-searchBtn.addEventListener('click', fetchWeatherData);
+const currentWeatherDiv = document.getElementById("current-weather");
+const hourlyDiv = document.getElementById("hourly-forecast");
+const dailyDiv = document.getElementById("daily-forecast");
+const radarFrame = document.getElementById("radar-frame");
 
-// Try to load weather for current GPS location on startup
-window.addEventListener('load', () => {
+// ---------- Load Saved Locations ----------
+function renderSavedLocations() {
+  savedList.innerHTML = "";
+  savedLocations.forEach((loc, i) => {
+    const li = document.createElement("li");
+    li.textContent = loc.name;
+    li.onclick = () => fetchWeatherByCoords(loc.lat, loc.lon, loc.name);
+    savedList.appendChild(li);
+  });
+}
+renderSavedLocations();
+
+// ---------- Get GPS Location ----------
+function getGPSLocation() {
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        fetchWeatherByCoords(lat, lon);
-      },
-      err => {
-        showError("Location access denied. Please search manually.");
-      }
-    );
-  } else {
-    showError("Geolocation not supported on this device.");
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      fetchWeatherByCoords(latitude, longitude, "My Location");
+    });
+  }
+}
+
+// ---------- Fetch Weather ----------
+async function fetchWeatherByCoords(lat, lon, name="") {
+  currentLocation = { lat, lon, name };
+  const url = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&units=imperial&appid=${apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  renderCurrentWeather(data.current, name);
+  renderHourlyForecast(data.hourly);
+  renderDailyForecast(data.daily);
+  renderRadar(lat, lon);
+}
+
+// ---------- Render Functions ----------
+function renderCurrentWeather(curr, name) {
+  currentWeatherDiv.innerHTML = `
+    <h2>${name}</h2>
+    <canvas id="current-icon" width="64" height="64"></canvas>
+    <p>Temp: ${curr.temp.toFixed(1)}°F</p>
+    <p>Feels Like: ${curr.feels_like.toFixed(1)}°F</p>
+    <p>Wind: ${curr.wind_speed} mph</p>
+    <p>Precip: ${curr.rain ? (curr.rain["1h"] || 0) + " in" : "0 in"}</p>
+  `;
+  const skycons = new Skycons({"color": "white"});
+  skycons.set("current-icon", mapIcon(curr.weather[0].id));
+  skycons.play();
+}
+
+function renderHourlyForecast(hourly) {
+  hourlyDiv.innerHTML = "<h3>Hourly Forecast</h3><div class='hourly-grid'></div>";
+  const container = hourlyDiv.querySelector(".hourly-grid");
+  container.style.display = "flex";
+  container.style.overflowX = "auto";
+  hourly.slice(0,12).forEach(hr => {
+    const div = document.createElement("div");
+    div.style.minWidth = "80px";
+    div.style.textAlign = "center";
+    div.innerHTML = `
+      <canvas id="icon-${hr.dt}" width="32" height="32"></canvas>
+      <p>${new Date(hr.dt*1000).getHours()}:00</p>
+      <p>${hr.temp.toFixed(0)}°F</p>
+    `;
+    container.appendChild(div);
+    const skycons = new Skycons({"color":"white"});
+    skycons.set(`icon-${hr.dt}`, mapIcon(hr.weather[0].id));
+    skycons.play();
+  });
+}
+
+function renderDailyForecast(daily) {
+  dailyDiv.innerHTML = "<h3>7-Day Forecast</h3><div class='daily-grid'></div>";
+  const container = dailyDiv.querySelector(".daily-grid");
+  container.style.display = "flex";
+  container.style.overflowX = "auto";
+  daily.slice(0,7).forEach(day => {
+    const div = document.createElement("div");
+    div.style.minWidth = "100px";
+    div.style.textAlign = "center";
+    div.innerHTML = `
+      <canvas id="daily-${day.dt}" width="48" height="48"></canvas>
+      <p>${new Date(day.dt*1000).toLocaleDateString(undefined, { weekday: 'short' })}</p>
+      <p>${day.temp.max.toFixed(0)}° / ${day.temp.min.toFixed(0)}°</p>
+      <p>💧${day.rain ? day.rain + " in" : "0 in"}</p>
+    `;
+    container.appendChild(div);
+    const skycons = new Skycons({"color":"white"});
+    skycons.set(`daily-${day.dt}`, mapIcon(day.weather[0].id));
+    skycons.play();
+  });
+}
+
+function renderRadar(lat, lon) {
+  radarFrame.src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=6&level=surface&overlay=radar&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates`;
+}
+
+// ---------- Map OpenWeather icons to Skycons ----------
+function mapIcon(id) {
+  if (id >= 200 && id < 600) return "RAIN";
+  if (id >= 600 && id < 700) return "SNOW";
+  if (id >= 700 && id < 800) return "FOG";
+  if (id === 800) return "CLEAR_DAY";
+  if (id > 800) return "PARTLY_CLOUDY_DAY";
+  return "CLOUDY";
+}
+
+// ---------- Event Listeners ----------
+searchInput.addEventListener("keypress", e => {
+  if (e.key === "Enter") {
+    fetchCity(searchInput.value);
   }
 });
 
-function fetchWeatherData() {
-  const location = locationInput.value.trim();
-  if (!location) {
-    showError('Please enter a location');
-    return;
+useLocationBtn.addEventListener("click", getGPSLocation);
+saveLocationBtn.addEventListener("click", () => {
+  if (currentLocation && !savedLocations.find(l => l.lat === currentLocation.lat && l.lon === currentLocation.lon)) {
+    savedLocations.push(currentLocation);
+    localStorage.setItem("savedLocations", JSON.stringify(savedLocations));
+    renderSavedLocations();
   }
+});
 
-  const currentWeatherUrl = `${apiEndpoint}current.json?key=${apiKey}&q=${location}`;
-  const forecastUrl = `${apiEndpoint}forecast.json?key=${apiKey}&q=${location}&days=7`;
-
-  fetchAndDisplay(currentWeatherUrl, forecastUrl);
+// ---------- Fetch by City Name ----------
+async function fetchCity(name) {
+  const geo = `https://api.openweathermap.org/geo/1.0/direct?q=${name}&limit=1&appid=${apiKey}`;
+  const res = await fetch(geo);
+  const data = await res.json();
+  if (data.length) {
+    fetchWeatherByCoords(data[0].lat, data[0].lon, data[0].name);
+  } else {
+    alert("City not found");
+  }
 }
 
-function fetchWeatherByCoords(lat, lon) {
-  const currentWeatherUrl = `${apiEndpoint}current.json?key=${apiKey}&q=${lat},${lon}`;
-  const forecastUrl = `${apiEndpoint}forecast.json?key=${apiKey}&q=${lat},${lon}&days=7`;
-
-  fetchAndDisplay(currentWeatherUrl, forecastUrl);
-}
-
-function fetchAndDisplay(currentUrl, forecastUrl) {
-  Promise.all([
-    fetch(currentUrl).then(res => res.json()),
-    fetch(forecastUrl).then(res => res.json())
-  ])
-    .then(([current, forecast]) => {
-      if (current.error) {
-        showError(current.error.message);
-        return;
-      }
-      displayWeatherData(current);
-      displayForecastData(forecast);
-    })
-    .catch(err => showError('Error fetching data: ' + err));
-}
-
-function displayWeatherData(data) {
-  weatherDataDiv.innerHTML = `
-    <h2>Current Weather in ${data.location.name}</h2>
-    <p>Temperature: ${data.current.temp_f}°F</p>
-    <p>Condition: ${data.current.condition.text}</p>
-    <p>Wind: ${data.current.wind_mph} mph</p>
-  `;
-}
-
-function displayForecastData(data) {
-  let html = '<h2>7-Day Forecast</h2>';
-  data.forecast.forecastday.forEach(day => {
-    html += `
-      <p>
-        <strong>${day.date}:</strong> 
-        ${day.day.condition.text}, 
-        High: ${day.day.maxtemp_f}°F, 
-        Low: ${day.day.mintemp_f}°F
-      </p>
-    `;
-  });
-  forecastDataDiv.innerHTML = html;
-}
-
-function showError(msg) {
-  errorLog.style.color = 'red';
-  errorLog.innerText = msg;
-}
+// ---------- Start ----------
+getGPSLocation();
