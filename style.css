@@ -1,65 +1,101 @@
-body {
-  font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
+/* General reset */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-h1 {
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Main container */
+.container {
+  width: 100%;
+  max-width: 700px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
   text-align: center;
+}
+
+/* Title */
+h1 {
+  font-size: 2.2rem;
+  margin-bottom: 20px;
   color: #333;
 }
 
-.container {
-  max-width: 800px;
-  margin: 40px auto;
-  padding: 20px;
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  text-align: center;
+/* Input + button */
+input[type="text"] {
+  width: 65%;
+  padding: 12px;
+  font-size: 16px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  margin-right: 10px;
+  outline: none;
+  transition: border 0.3s;
 }
 
-input[type="text"] {
-  width: 70%;
-  padding: 10px;
-  font-size: 16px;
-  border: 1px solid #bbb;
-  border-radius: 5px;
-  margin-right: 10px;
+input[type="text"]:focus {
+  border-color: #0077cc;
 }
 
 button {
-  padding: 10px 15px;
+  padding: 12px 18px;
   font-size: 16px;
   background-color: #0077cc;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.3s;
 }
 
 button:hover {
   background-color: #005fa3;
 }
 
-#weather-data, #forecast-data {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
+/* Current weather card */
+#weather-data {
+  margin-top: 25px;
+  padding: 20px;
+  background: #fdfdfd;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   text-align: left;
 }
 
-#forecast-data p {
-  margin: 5px 0;
-  padding: 6px;
-  border-bottom: 1px solid #eee;
+#weather-data h2 {
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+  color: #444;
 }
 
-#error-log {
-  margin-top: 15px;
-  font-weight: bold;
+/* Forecast grid */
+#forecast-data {
+  margin-top: 25px;
+}
+
+#forecast-data h2 {
+  margin-bottom: 15px;
+  font-size: 1.4rem;
+  color: #444;
+}
+
+#forecast-data .day {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 8px 0;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  text-align: left;
 }
